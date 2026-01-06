@@ -27,8 +27,7 @@ model = YOLO("yolo11s.pt")
 logger = logging.getLogger(__name__)
 
 
-# new log every day
-def setup_logging():
+def setup_logging() -> None:
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s - %(levelname)s - %(message)s",
@@ -41,7 +40,7 @@ def setup_logging():
     )
 
 
-def capture_image(image_path):
+def capture_image(image_path: Path) -> bool:
     result = subprocess.run(
         ["fswebcam", "-r", "640x480", "--no-banner", "-S", "5", str(image_path)],
         capture_output=True,
@@ -57,29 +56,27 @@ def capture_image(image_path):
     return True
 
 
-def detect_cat(image_path, timestamp):
+def detect_cat(image_path: Path, timestamp: str) -> Path | None:
     try:
         result = model(image_path)[0]
         detected_classes = result.boxes.cls
-
         if CAT_ID in detected_classes or DOG_ID in detected_classes:
             logger.info("cat detected")
             cat_image_path = CATS_DIR / f"{timestamp}.jpg"
             result.save(filename=str(cat_image_path))
             return cat_image_path
-
         return None
     except Exception as e:
         logger.error(f"detection failed: {e}")
         return None
 
 
-def notify_discord(cat_image_path, timestamp):
+def notify_discord(cat_image_path: Path, timestamp: str) -> None:
     try:
         with open(cat_image_path, "rb") as f:
             response = requests.post(
                 DISCORD_WEBHOOK_URL,
-                data={"content": "cat detected"},
+                data={"content": f"cat detected at {timestamp}"},
                 files={"file": (f"{timestamp}.jpg", f, "image/jpeg")},
                 timeout=30,
             )
@@ -89,27 +86,22 @@ def notify_discord(cat_image_path, timestamp):
         logger.error(f"failed to send discord notification: {e}")
 
 
-def main():
+def main() -> None:
     setup_logging()
-    logger.info("starting cat surveilance program...")
+    logger.info("starting cat surveillance program...")
     while True:
         try:
             timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             image_path = ALL_DIR / f"{timestamp}.jpg"
-
             # skip detection and notification if image capture fails
             if not capture_image(image_path):
                 time.sleep(INTERVAL)
                 continue
-
             cat_image_path = detect_cat(image_path, timestamp)
-
             if cat_image_path:
                 notify_discord(cat_image_path, timestamp)
-
         except Exception as e:
             logger.exception(f"unexpected error: {e}")
-
         time.sleep(INTERVAL)
 
 
