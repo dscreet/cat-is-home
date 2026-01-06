@@ -1,16 +1,22 @@
+import os
 import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
 
+import requests
+from dotenv import load_dotenv
 from ultralytics import YOLO
 
-model = YOLO("yolo11n.pt")
+load_dotenv()
+
+model = YOLO("yolo11s.pt")
 
 interval = 30
 all_dir = Path("captures/all")
 cats_dir = Path("captures/cats")
 CAT_ID = 15
+DISCORD_WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
 
 while True:
     timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -30,5 +36,12 @@ while True:
         print("cat detected")
         cat_image_path = cats_dir / f"{timestamp}.jpg"
         result.save(filename=str(cat_image_path))
+
+        with open(cat_image_path, "rb") as f:
+            requests.post(
+                DISCORD_WEBHOOK_URL,
+                data={"content": "cat detected"},
+                files={"file": (f"{timestamp}.jpg", f, "image/jpeg")},
+            )
 
     time.sleep(interval)
