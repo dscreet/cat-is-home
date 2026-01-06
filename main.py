@@ -3,39 +3,48 @@ import os
 import subprocess
 import time
 from datetime import datetime
+from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
 from ultralytics import YOLO
 
-# Set up logging to both file and console
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("app.log"),
-        logging.StreamHandler(),
-    ],
-)
-logger = logging.getLogger(__name__)
-
 load_dotenv()
+
+INTERVAL = 30
+CAT_ID = 15
+
+LOGS_DIR = Path("logs")
+ALL_DIR = Path("captures/all")
+CATS_DIR = Path("captures/cats")
+
+DISCORD_WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
 
 model = YOLO("yolo11s.pt")
 
-interval = 30
-all_dir = Path("captures/all")
-cats_dir = Path("captures/cats")
-CAT_ID = 15
-DISCORD_WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
+logger = logging.getLogger(__name__)
+
+
+# new log every day
+def setup_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            TimedRotatingFileHandler(
+                LOGS_DIR / "main.log", when="midnight", backupCount=7, encoding="utf-8"
+            ),
+            logging.StreamHandler(),
+        ],
+    )
 
 
 def capture_image(image_path):
     result = subprocess.run(
         ["fswebcam", "-r", "640x480", "--no-banner", str(image_path)],
         capture_output=True,
-        # text=True,
+        text=True,
     )
     if result.returncode != 0:
         logger.error(f"image capture failed: {result.stderr}")
@@ -54,7 +63,7 @@ def detect_cat(image_path, timestamp):
 
         if CAT_ID in detected_classes:
             logger.info("cat detected")
-            cat_image_path = cats_dir / f"{timestamp}.jpg"
+            cat_image_path = CATS_DIR / f"{timestamp}.jpg"
             result.save(filename=str(cat_image_path))
             return cat_image_path
 
@@ -80,15 +89,16 @@ def notify_discord(cat_image_path, timestamp):
 
 
 def main():
+    setup_logging()
     logger.info("starting cat surveilance program...")
     while True:
         try:
             timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            image_path = all_dir / f"{timestamp}.jpg"
+            image_path = ALL_DIR / f"{timestamp}.jpg"
 
             # skip detection and notification if image capture fails
             if not capture_image(image_path):
-                time.sleep(interval)
+                time.sleep(INTERVAL)
                 continue
 
             cat_image_path = detect_cat(image_path, timestamp)
@@ -99,7 +109,7 @@ def main():
         except Exception as e:
             logger.exception(f"unexpected error: {e}")
 
-        time.sleep(interval)
+        time.sleep(INTERVAL)
 
 
 if __name__ == "__main__":
