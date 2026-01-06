@@ -14,6 +14,7 @@ load_dotenv()
 
 INTERVAL = 30
 CAT_ID = 15
+DOG_ID = 16  # it thinks my cat is a dog sometimes..
 
 LOGS_DIR = Path("logs")
 ALL_DIR = Path("captures/all")
@@ -42,7 +43,7 @@ def setup_logging():
 
 def capture_image(image_path):
     result = subprocess.run(
-        ["fswebcam", "-r", "640x480", "--no-banner", str(image_path)],
+        ["fswebcam", "-r", "640x480", "--no-banner", "-S", "5", str(image_path)],
         capture_output=True,
         text=True,
     )
@@ -61,7 +62,7 @@ def detect_cat(image_path, timestamp):
         result = model(image_path)[0]
         detected_classes = result.boxes.cls
 
-        if CAT_ID in detected_classes:
+        if CAT_ID in detected_classes or DOG_ID in detected_classes:
             logger.info("cat detected")
             cat_image_path = CATS_DIR / f"{timestamp}.jpg"
             result.save(filename=str(cat_image_path))
