@@ -21,6 +21,7 @@ ALL_DIR = Path("captures/all")
 CATS_DIR = Path("captures/cats")
 
 DISCORD_WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
+DISCORD_USER_ID = os.environ["DISCORD_USER_ID"]
 
 model = YOLO("yolo11s.pt")
 
@@ -76,7 +77,7 @@ def notify_discord(cat_image_path: Path, timestamp: str) -> None:
         with open(cat_image_path, "rb") as f:
             response = requests.post(
                 DISCORD_WEBHOOK_URL,
-                data={"content": f"cat detected at {timestamp}"},
+                data={"content": f"<@{DISCORD_USER_ID}> cat detected at {timestamp}"},
                 files={"file": (f"{timestamp}.jpg", f, "image/jpeg")},
                 timeout=30,
             )
