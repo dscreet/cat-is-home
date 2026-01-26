@@ -13,6 +13,7 @@ from ultralytics import YOLO
 load_dotenv()
 
 INTERVAL = 30
+NOTIFICATION_COOLDOWN = 300
 CAT_ID = 15
 DOG_ID = 16  # it thinks my cat is a dog sometimes..
 
@@ -90,6 +91,7 @@ def notify_discord(cat_image_path: Path, timestamp: str) -> None:
 def main() -> None:
     setup_logging()
     logger.info("starting cat surveillance program...")
+    last_notification = 0
     while True:
         try:
             timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -100,7 +102,12 @@ def main() -> None:
                 continue
             cat_image_path = detect_cat(image_path, timestamp)
             if cat_image_path:
-                notify_discord(cat_image_path, timestamp)
+                now = time.time()
+                if now - last_notification >= NOTIFICATION_COOLDOWN:
+                    notify_discord(cat_image_path, timestamp)
+                    last_notification = now
+                else:
+                    logger.info("skipping notification due to cooldown")
         except Exception as e:
             logger.exception(f"unexpected error: {e}")
         time.sleep(INTERVAL)
